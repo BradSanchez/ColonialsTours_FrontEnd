@@ -1,0 +1,34 @@
+#map {
+  height: 600px;
+}
+.hero-image {
+  background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)),
+    url("https://cdn.abacus.ai/images/1c131054-2e7f-4fde-bf06-e151ed1c47e3.png");
+  background-size: cover;
+  background-position: center;
+}
+.filter-chip {
+  transition: all 0.3s ease;
+}
+.filter-chip.active {
+  background-color: #d97706;
+  color: white;
+}
+.leaflet-popup-content img {
+  max-width: 100%;
+  height: auto;
+  margin-bottom: 10px;
+}
+
+.hero-image {
+  background-image: url("http://static.photos/travel/1200x630/8");
+  background-size: cover;
+  background-position: center;
+}
+
+.leaflet-container {
+  width: 100% !important;
+  height: 100% !important;
+  /* Evita scrolls extraños */
+  overflow: hidden;
+}
