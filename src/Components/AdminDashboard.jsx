@@ -530,6 +530,7 @@ const AdminDashboard = () => {
               <ChevronDown size={16} className="text-gray-400" />
             </button>
             
+            
             {showProfileDropdown && (
               <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-50">
                 <div
