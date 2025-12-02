@@ -2,17 +2,31 @@
 
 Frontend React integrado con backend Node.js/Express separado.
 
-## Configuración
+## Configuración Rápida
 
-### 1. Instalar dependencias
+### Opción 1: Script Automático (Windows)
+```bash
+quick-setup.bat
+```
+
+### Opción 2: Manual
+
+#### 1. Instalar dependencias
 ```bash
 npm install
 ```
 
-### 2. Configurar backend
-Asegúrate de que tu backend esté corriendo en `http://localhost:3001`
+#### 2. Verificar archivo .env
+Asegúrate de que existe `.env` con:
+```
+VITE_API_URL=http://localhost:3001/api
+VITE_CLOUDINARY_CLOUD_NAME=drxaxh9cr
+```
 
-### 3. Ejecutar frontend
+#### 3. Iniciar backend PRIMERO
+El backend debe estar corriendo en `http://localhost:3001`
+
+#### 4. Ejecutar frontend
 ```bash
 npm run dev
 ```
@@ -23,10 +37,23 @@ npm run dev
 - `POST /api/auth/register` - Registro de usuario
 - `GET /api/auth/profile` - Perfil de usuario
 
-## Componentes Integrados
+## Componentes Disponibles
 
 - **Login** - Conectado al endpoint de autenticación
 - **Register** - Conectado al endpoint de registro
 - **AuthContext** - Manejo global de autenticación
+- **Dropdown** - Componente dropdown reutilizable
+- **DropdownExample** - Ejemplo de uso del dropdown
+
+## Solución de Problemas
+
+### Error de conexión
+- Verifica que el backend esté corriendo en puerto 3001
+- Revisa la consola del navegador para errores
+- Asegúrate de que el archivo .env existe
+
+### Dropdown no funciona
+- Importa: `import Dropdown from './Components/Dropdown'`
+- Usa el formato: `options=[{value: 'id', label: 'Texto'}]`
 
 El frontend se conecta automáticamente al backend en `http://localhost:3001/api`.

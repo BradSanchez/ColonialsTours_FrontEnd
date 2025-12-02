@@ -43,7 +43,7 @@ function Login() {
     }
     if (!formData.password) {
       newErrors.password = 'La contraseña es obligatoria';
-    } else if (formData.password.length < 4) {
+    } else if (formData.password.length < 6) {
       newErrors.password = 'Mínimo 6 caracteres';
     }
     return newErrors;
@@ -62,17 +62,12 @@ function Login() {
     
     try {
       const response = await login(formData.email, formData.password);
-      console.log('Respuesta del servidor:', response);
-      if (response.success) {
-        console.log('Login exitoso:', response);
-        if (response.user.role === 'admin') {
-          navigate('/admin');
-        } else {
-          navigate('/profile');
-        }
+      if (response && response.success) {
+        // La navegación se maneja en el useEffect
       }
     } catch (error) {
-      setErrors({ general: error.message || 'Error al iniciar sesión' });
+      console.error('Error de login:', error);
+      setErrors({ general: error.message || 'Credenciales incorrectas' });
     } finally {
       setIsLoading(false);
     }

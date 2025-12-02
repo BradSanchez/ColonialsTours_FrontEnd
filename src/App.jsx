@@ -13,6 +13,7 @@ import AdminDashboard from './Components/AdminDashboard';
 import Tours from './Components/Tours';
 import TourDetail from './Components/TourDetail';
 import GuideDashboard from './Components/GuideDashboard';
+import Settings from './Components/Settings';
 import Mapa from './Components/Mapa';
 import LugaresInteres from './Components/LugaresInteres';
 
@@ -31,6 +32,11 @@ function AppContent() {
         <Route path="/profile" element={
           <ProtectedRoute>
             <Profile />
+          </ProtectedRoute>
+        } />
+        <Route path="/settings" element={
+          <ProtectedRoute>
+            <Settings />
           </ProtectedRoute>
         } />
         <Route path="/admin" element={

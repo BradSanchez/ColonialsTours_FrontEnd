@@ -165,6 +165,8 @@ function Profile() {
     profileImage: user?.profile_image || ''
   });
   
+  const [guideRequest, setGuideRequest] = useState(null);
+  
   const [newTour, setNewTour] = useState({
     title: '',
     description: '',
@@ -174,7 +176,9 @@ function Profile() {
     category: '',
     images: [],
     includes: [],
-    itinerary: []
+    itinerary: [],
+    maxParticipants: 12,
+    languages: 'ES, EN'
   });
   
   const [editingTour, setEditingTour] = useState(null);
@@ -193,7 +197,18 @@ function Profile() {
     loadPurchaseHistory();
     loadUserProfile();
     loadMyTours();
+    loadGuideRequestStatus();
   }, [user]);
+
+  const loadGuideRequestStatus = async () => {
+    if (!user) return;
+    try {
+      const response = await apiService.request('/user/guide-request-status');
+      setGuideRequest(response.request);
+    } catch (error) {
+      console.error('Error loading guide request status:', error);
+    }
+  };
 
   const loadUserProfile = async () => {
     if (!user) return;
@@ -369,7 +384,7 @@ function Profile() {
       });
       console.log('Respuesta del servidor al crear:', response);
       setEditingTour(null);
-      setNewTour({ title: '', description: '', price: '', duration: '', location: '', category: '', images: [], includes: [], itinerary: [] });
+      setNewTour({ title: '', description: '', price: '', duration: '', location: '', category: '', images: [], includes: [], itinerary: [], maxParticipants: 12, languages: 'ES, EN' });
       loadTours();
       loadMyTours();
       showToast('Tour creado exitosamente');
@@ -461,7 +476,7 @@ function Profile() {
 
 
 
-  const getTotalPrice = () => cart.reduce((total, tour) => total + parseFloat(tour.price), 0);
+  const getTotalPrice = () => cart.reduce((total, tour) => total + parseFloat(tour.price), 0).toFixed(2);
 
   return (
     <div className="min-h-screen bg-gray-50 pt-8">
@@ -478,7 +493,7 @@ function Profile() {
             { id: 'saved', label: 'Guardados', icon: Heart, color: 'from-pink-500 to-rose-600' },
             { id: 'history', label: 'Historial', icon: Clock, color: 'from-purple-500 to-violet-600' },
             { id: 'profile', label: 'Perfil', icon: Settings, color: 'from-gray-500 to-slate-600' },
-            { id: 'manage', label: 'Mis Tours', icon: Plus, color: 'from-orange-500 to-amber-600' }
+            ...(user?.role === 'guide' || user?.role === 'admin' ? [{ id: 'manage', label: 'Mis Tours', icon: Plus, color: 'from-orange-500 to-amber-600' }] : [])
           ].map(tab => {
             const Icon = tab.icon;
             return (
@@ -709,6 +724,50 @@ function Profile() {
               </div>
             </div>
             
+            {/* Become Guide Section */}
+            {user?.role !== 'guide' && user?.role !== 'admin' && (
+              <div className={`rounded-2xl p-6 text-white mb-8 ${
+                guideRequest?.status === 'pending' ? 'bg-gradient-to-r from-yellow-500 to-orange-600' :
+                guideRequest?.status === 'rejected' ? 'bg-gradient-to-r from-red-500 to-pink-600' :
+                'bg-gradient-to-r from-blue-500 to-purple-600'
+              }`}>
+                {guideRequest?.status === 'pending' ? (
+                  <>
+                    <h3 className="text-xl font-bold mb-2">Solicitud Pendiente</h3>
+                    <p className="text-yellow-100 mb-4">Tu solicitud para ser guía está siendo revisada por un administrador.</p>
+                    <div className="bg-white/20 px-4 py-2 rounded-lg inline-block">
+                      <span className="font-medium">Estado: Pendiente</span>
+                    </div>
+                  </>
+                ) : guideRequest?.status === 'rejected' ? (
+                  <>
+                    <h3 className="text-xl font-bold mb-2">Solicitud Rechazada</h3>
+                    <p className="text-red-100 mb-4">Tu solicitud para ser guía fue rechazada. Puedes intentar nuevamente más tarde.</p>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="text-xl font-bold mb-2">¿Quieres ser guía turístico?</h3>
+                    <p className="text-blue-100 mb-4">Comparte tus conocimientos y crea tours únicos para otros viajeros.</p>
+                    <button
+                      onClick={async () => {
+                        try {
+                          await apiService.request('/user/become-guide', { method: 'POST' });
+                          showToast('Solicitud enviada correctamente');
+                          loadGuideRequestStatus();
+                        } catch (error) {
+                          showToast(error.message || 'Error enviando solicitud', 'error');
+                        }
+                      }}
+                      className="bg-white text-blue-600 px-6 py-3 rounded-xl font-medium hover:bg-blue-50 transition-colors flex items-center gap-2"
+                    >
+                      <Plus size={20} />
+                      Solicitar ser Guía
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+            
             <form onSubmit={updateProfile} className="space-y-6">
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
@@ -764,14 +823,13 @@ function Profile() {
                   )}
                   {loading ? 'Guardando...' : 'Guardar'}
                 </button>
-
               </div>
             </form>
           </div>
         )}
 
         {/* Gestión de Tours */}
-        {activeTab === 'manage' && (
+        {activeTab === 'manage' && (user?.role === 'guide' || user?.role === 'admin') && (
           <div className="space-y-8">
             {/* Bienvenida para nuevos usuarios */}
             {myTours.length === 0 && (
@@ -992,6 +1050,30 @@ function Profile() {
                       placeholder="9:00 AM - Encuentro en Parque Colón\n9:15 AM - Visita a la Catedral Primada\n10:00 AM - Recorrido por Calle Las Damas"
                     />
                     <p className="text-xs text-gray-500 mt-1">Formato: Hora - Actividad (una por línea)</p>
+                  </div>
+                  
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Máximo participantes</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="50"
+                        value={editingTour.maxParticipants || 12}
+                        onChange={(e) => setEditingTour({...editingTour, maxParticipants: parseInt(e.target.value)})}
+                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Idiomas</label>
+                      <input
+                        type="text"
+                        value={editingTour.languages || 'ES, EN'}
+                        onChange={(e) => setEditingTour({...editingTour, languages: e.target.value})}
+                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500"
+                        placeholder="ES, EN, FR"
+                      />
+                    </div>
                   </div>
                   
                     <div className="flex gap-4 pt-4">

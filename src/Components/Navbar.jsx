@@ -1,12 +1,18 @@
 import React, { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAuthContext } from '../context/AuthContext';
 import { Map, Menu, User, LogOut, Settings, TrendingUp, ChevronDown } from 'react-feather';
+import SettingsModal from './SettingsModal';
 
 const Navbar = () => {
   const { user, logout } = useAuthContext();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const location = useLocation();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState(user);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  
+  const isInDashboard = location.pathname === '/admin' || location.pathname === '/guide';
 
   React.useEffect(() => {
     const savedUser = localStorage.getItem('user');
@@ -98,16 +104,31 @@ const Navbar = () => {
                       <User size={16} />
                       Mi Perfil
                     </a>
-                    {currentUser?.role === 'admin' && (
+                    {isInDashboard ? (
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          console.log('Abriendo modal de configuración');
+                          setShowSettingsModal(true);
+                          setIsDropdownOpen(false);
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 w-full text-left"
+                      >
+                        <Settings size={16} />
+                        Configuración
+                      </button>
+                    ) : (
                       <a 
-                        href="/admin" 
+                        href="/settings" 
                         className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                         onClick={() => setIsDropdownOpen(false)}
                       >
                         <Settings size={16} />
-                        Dashboard
+                        Configuración
                       </a>
                     )}
+                    <div className="border-t border-gray-100 my-1"></div>
                     <button
                       onClick={() => { logout(); setIsDropdownOpen(false); }}
                       className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full text-left"
@@ -149,8 +170,22 @@ const Navbar = () => {
           <li><a href="/mapa" className="block text-sm px-4 py-3 hover:bg-amber-50 transition duration-300">Mapa</a></li>
           {user ? (
             <>
-
-              <li><a href="/profile" className="block text-sm px-4 py-3 hover:bg-amber-50 transition duration-300">Perfil</a></li>
+              <li><a href="/profile" className="block text-sm px-4 py-3 hover:bg-amber-50 transition duration-300">Mi Perfil</a></li>
+              {isInDashboard ? (
+                <li>
+                  <button 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setShowSettingsModal(true);
+                    }}
+                    className="block w-full text-left text-sm px-4 py-3 hover:bg-amber-50 transition duration-300"
+                  >
+                    Configuración
+                  </button>
+                </li>
+              ) : (
+                <li><a href="/settings" className="block text-sm px-4 py-3 hover:bg-amber-50 transition duration-300">Configuración</a></li>
+              )}
               <li><button onClick={logout} className="block w-full text-left text-sm px-4 py-3 hover:bg-red-50 text-red-600 transition duration-300">Cerrar Sesión</button></li>
             </>
           ) : (
@@ -161,6 +196,12 @@ const Navbar = () => {
           )}
         </ul>
       </div>
+      
+      {/* Settings Modal */}
+      <SettingsModal 
+        isOpen={showSettingsModal} 
+        onClose={() => setShowSettingsModal(false)} 
+      />
     </nav>
   );
 };

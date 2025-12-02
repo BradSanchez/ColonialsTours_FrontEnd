@@ -21,10 +21,65 @@ const TourDetail = () => {
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [showAllPhotos, setShowAllPhotos] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+
+  const handleShare = async () => {
+    const shareData = {
+      title: tour.title,
+      text: `¡Mira este increíble tour: ${tour.title}!`,
+      url: window.location.href
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (error) {
+        console.log('Error sharing:', error);
+      }
+    } else {
+      navigator.clipboard.writeText(window.location.href);
+      alert('¡Enlace copiado al portapapeles!');
+    }
+  };
+
+  const handleSave = async () => {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+
+    try {
+      if (isSaved) {
+        await apiService.request(`/tours/saved/${id}`, { method: 'DELETE' });
+        setIsSaved(false);
+      } else {
+        await apiService.request('/tours/save', {
+          method: 'POST',
+          body: JSON.stringify({ tourId: id })
+        });
+        setIsSaved(true);
+      }
+    } catch (error) {
+      console.error('Error saving tour:', error);
+    }
+  };
 
   useEffect(() => {
     loadTourDetail();
-  }, [id]);
+    if (user) {
+      checkIfSaved();
+    }
+  }, [id, user]);
+
+  const checkIfSaved = async () => {
+    try {
+      const response = await apiService.request('/tours/saved');
+      const savedTour = response.savedTours.find(saved => saved.id === parseInt(id));
+      setIsSaved(!!savedTour);
+    } catch (error) {
+      console.error('Error checking saved status:', error);
+    }
+  };
 
   const loadTourDetail = async () => {
     try {
@@ -119,13 +174,19 @@ const TourDetail = () => {
             <span>Volver</span>
           </button>
           <div className="flex items-center gap-4">
-            <button className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 rounded-lg">
+            <button 
+              onClick={handleShare}
+              className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 rounded-lg"
+            >
               <Share2 size={16} />
               <span>Compartir</span>
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 rounded-lg">
-              <Heart size={16} />
-              <span>Guardar</span>
+            <button 
+              onClick={handleSave}
+              className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 rounded-lg"
+            >
+              <Heart size={16} className={isSaved ? 'fill-red-500 text-red-500' : ''} />
+              <span>{isSaved ? 'Guardado' : 'Guardar'}</span>
             </button>
           </div>
         </div>
@@ -205,7 +266,7 @@ const TourDetail = () => {
               </div>
               <div>
                 <p className="font-semibold">Anfitrión: {tour.guide_name}</p>
-                <p className="text-sm text-gray-600">Guía certificado • 3 años de experiencia</p>
+                <p className="text-sm text-gray-600">Guía certificado • {tour.guide_experience_years > 0 ? `${tour.guide_experience_years} años` : `${tour.guide_experience_months || 0} meses`} de experiencia</p>
               </div>
               <div className="ml-auto">
                 <Award className="text-orange-500" size={24} />
@@ -222,12 +283,12 @@ const TourDetail = () => {
             </div>
             <div className="text-center p-4 bg-gray-50 rounded-xl">
               <Users className="mx-auto mb-2 text-green-600" size={24} />
-              <p className="font-semibold">Hasta 12</p>
+              <p className="font-semibold">Hasta {tour.max_participants || 12}</p>
               <p className="text-sm text-gray-600">Participantes</p>
             </div>
             <div className="text-center p-4 bg-gray-50 rounded-xl">
               <Globe className="mx-auto mb-2 text-purple-600" size={24} />
-              <p className="font-semibold">ES, EN</p>
+              <p className="font-semibold">{tour.languages || 'ES, EN'}</p>
               <p className="text-sm text-gray-600">Idiomas</p>
             </div>
           </div>
@@ -239,34 +300,48 @@ const TourDetail = () => {
           </div>
 
           {/* What's Included */}
-          {tour.includes && JSON.parse(tour.includes).length > 0 && (
-            <div>
-              <h2 className="text-xl font-bold mb-4">Qué incluye</h2>
-              <div className="grid grid-cols-1 gap-3">
-                {JSON.parse(tour.includes).map((item, index) => (
-                  <div key={index} className="flex items-center gap-3">
-                    <Check size={20} className="text-green-600" />
-                    <span className="text-gray-700">{item}</span>
+          {(() => {
+            try {
+              const includes = tour.includes ? JSON.parse(tour.includes) : [];
+              return Array.isArray(includes) && includes.length > 0 ? (
+                <div>
+                  <h2 className="text-xl font-bold mb-4">Qué incluye</h2>
+                  <div className="grid grid-cols-1 gap-3">
+                    {includes.map((item, index) => (
+                      <div key={index} className="flex items-center gap-3">
+                        <Check size={20} className="text-green-600" />
+                        <span className="text-gray-700">{item}</span>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
+                </div>
+              ) : null;
+            } catch {
+              return null;
+            }
+          })()}
 
           {/* Itinerary */}
-          {tour.itinerary && JSON.parse(tour.itinerary).length > 0 && (
-            <div>
-              <h2 className="text-xl font-bold mb-4">Itinerario</h2>
-              <div className="space-y-4">
-                {JSON.parse(tour.itinerary).map((item, index) => (
-                  <div key={index} className="flex gap-4 p-3 bg-gray-50 rounded-lg">
-                    <span className="font-semibold text-orange-600 min-w-[80px]">{item.time}</span>
-                    <span className="text-gray-700">{item.activity}</span>
+          {(() => {
+            try {
+              const itinerary = tour.itinerary ? JSON.parse(tour.itinerary) : [];
+              return Array.isArray(itinerary) && itinerary.length > 0 ? (
+                <div>
+                  <h2 className="text-xl font-bold mb-4">Itinerario</h2>
+                  <div className="space-y-4">
+                    {itinerary.map((item, index) => (
+                      <div key={index} className="flex gap-4 p-3 bg-gray-50 rounded-lg">
+                        <span className="font-semibold text-orange-600 min-w-[80px]">{item.time}</span>
+                        <span className="text-gray-700">{item.activity}</span>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
+                </div>
+              ) : null;
+            } catch {
+              return null;
+            }
+          })()}
 
           {/* Reviews */}
           <ReviewSection tourId={id} />
@@ -363,14 +438,10 @@ const TourDetail = () => {
                   <span>${(parseFloat(tour.price) * 0.5 * guestCount.children).toFixed(2)}</span>
                 </div>
               )}
-              <div className="flex justify-between">
-                <span>Tarifa de servicio</span>
-                <span>$5.00</span>
-              </div>
               <hr />
               <div className="flex justify-between font-semibold">
                 <span>Total</span>
-                <span>${(parseFloat(tour.price) * guestCount.adults + parseFloat(tour.price) * 0.5 * guestCount.children + 5).toFixed(2)}</span>
+                <span>${(parseFloat(tour.price) * guestCount.adults + parseFloat(tour.price) * 0.5 * guestCount.children).toFixed(2)}</span>
               </div>
             </div>
           </div>
@@ -397,7 +468,7 @@ const TourDetail = () => {
               </div>
               <div className="flex justify-between font-bold text-lg">
                 <span>Total:</span>
-                <span>${(parseFloat(tour.price) * guestCount.adults + parseFloat(tour.price) * 0.5 * guestCount.children + 5).toFixed(2)}</span>
+                <span>${(parseFloat(tour.price) * guestCount.adults + parseFloat(tour.price) * 0.5 * guestCount.children).toFixed(2)}</span>
               </div>
             </div>
             <div className="flex gap-3">

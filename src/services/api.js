@@ -17,15 +17,23 @@ class ApiService {
     }
 
     try {
+      console.log('Haciendo petición a:', url);
       const response = await fetch(url, config);
-      const data = await response.json();
       
       if (!response.ok) {
-        throw new Error(data.message || 'Error en la solicitud');
+        if (response.status === 404) {
+          throw new Error('Servidor no encontrado. Verifica que el backend esté corriendo en http://localhost:3001');
+        }
+        const errorData = await response.json().catch(() => ({ message: 'Error del servidor' }));
+        throw new Error(errorData.message || `Error ${response.status}`);
       }
       
+      const data = await response.json();
       return data;
     } catch (error) {
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        throw new Error('No se puede conectar al servidor. Verifica que el backend esté corriendo.');
+      }
       console.error('API Error:', error);
       throw error;
     }

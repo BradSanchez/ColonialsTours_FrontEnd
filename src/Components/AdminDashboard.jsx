@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthContext } from '../context/AuthContext';
-import { TrendingUp, Users, MapPin, DollarSign, Trash2, Eye, Check, X, Plus, Edit3, User, Settings, Star, MessageSquare, Shield, Activity, Mail } from 'react-feather';
+import { TrendingUp, Users, MapPin, DollarSign, Trash2, Eye, Check, X, Plus, Edit3, User, Settings, Star, MessageSquare, Shield, Activity, Mail, LogOut, ChevronDown } from 'react-feather';
 import ImageUpload from './ImageUpload';
 import MultiImageUpload from './MultiImageUpload';
+import SettingsModal from './SettingsModal';
 import apiService from '../services/api';
 
 // Componente Toast
@@ -80,6 +81,21 @@ const AdminDashboard = () => {
     newPassword: '',
     confirmPassword: ''
   });
+  const [guideRequests, setGuideRequests] = useState([]);
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showProfileDropdown && !event.target.closest('.dropdown-container')) {
+        setShowProfileDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showProfileDropdown]);
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -150,6 +166,39 @@ const AdminDashboard = () => {
       setStats(prev => ({ ...prev, totalNewsletters: fallbackData.length }));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadGuideRequests = async () => {
+    setLoading(true);
+    try {
+      const response = await apiService.request('/admin/guide-requests');
+      setGuideRequests(response.requests || []);
+    } catch (error) {
+      console.error('Error loading guide requests:', error);
+      setGuideRequests([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const approveGuideRequest = async (requestId) => {
+    try {
+      await apiService.request(`/admin/guide-requests/${requestId}/approve`, { method: 'POST' });
+      loadGuideRequests();
+      showToast('Solicitud aprobada exitosamente');
+    } catch (error) {
+      showToast('Error aprobando solicitud', 'error');
+    }
+  };
+
+  const rejectGuideRequest = async (requestId) => {
+    try {
+      await apiService.request(`/admin/guide-requests/${requestId}/reject`, { method: 'POST' });
+      loadGuideRequests();
+      showToast('Solicitud rechazada');
+    } catch (error) {
+      showToast('Error rechazando solicitud', 'error');
     }
   };
 
@@ -288,6 +337,7 @@ const AdminDashboard = () => {
         localStorage.setItem('user', JSON.stringify(updatedUser));
         showToast('Perfil actualizado exitosamente');
         setAdminProfile(prev => ({ ...prev, currentPassword: '', newPassword: '', confirmPassword: '' }));
+        setShowProfileModal(false);
         setTimeout(() => window.location.reload(), 1000);
       }
     } catch (error) {
@@ -439,13 +489,14 @@ const AdminDashboard = () => {
     if (activeTab === 'reviews') loadReviews();
     if (activeTab === 'testimonials') loadTestimonials();
     if (activeTab === 'newsletters') loadNewsletters();
+    if (activeTab === 'guide-requests') loadGuideRequests();
     if (activeTab === 'settings') loadFooterSettings();
   }, [activeTab]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       {/* Header */}
-      <div className="bg-white/80 backdrop-blur-sm shadow-lg border-b border-gray-100">
+      <div className="bg-white/80 backdrop-blur-sm shadow-lg border-b border-gray-100 relative z-40">
         <div className="max-w-7xl mx-auto px-6 py-6 flex justify-between items-center">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
@@ -456,12 +507,62 @@ const AdminDashboard = () => {
               <p className="text-gray-500 text-sm">Panel de administración</p>
             </div>
           </div>
-          <button 
-            onClick={logout} 
-            className="px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl font-medium transition-colors"
-          >
-            Cerrar Sesión
-          </button>
+          <div className="relative z-50 dropdown-container">
+            <button 
+              onClick={(e) => { e.stopPropagation(); setShowProfileDropdown(!showProfileDropdown); }}
+              className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-xl transition-colors"
+            >
+              {user?.profile_image ? (
+                <img 
+                  src={user.profile_image} 
+                  alt="Admin"
+                  className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
+                />
+              ) : (
+                <div className="w-10 h-10 bg-gradient-to-br from-purple-400 to-purple-600 rounded-full flex items-center justify-center">
+                  <User className="text-white" size={20} />
+                </div>
+              )}
+              <div className="text-left">
+                <p className="font-medium text-gray-900">{user?.name}</p>
+                <p className="text-xs text-gray-500">Administrador</p>
+              </div>
+              <ChevronDown size={16} className="text-gray-400" />
+            </button>
+            
+            {showProfileDropdown && (
+              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-50">
+                <div
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('CLICK EN MI PERFIL');
+                    setShowProfileModal(true); 
+                    setShowProfileDropdown(false);
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 w-full text-left cursor-pointer"
+                >
+                  <User size={16} />
+                  Mi Perfil
+                </div>
+                <button
+                  onClick={() => { setShowSettingsModal(true); setShowProfileDropdown(false); }}
+                  className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 w-full text-left"
+                >
+                  <Settings size={16} />
+                  Configuración
+                </button>
+                <div className="border-t border-gray-100 my-1"></div>
+                <button
+                  onClick={() => { logout(); setShowProfileDropdown(false); }}
+                  className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full text-left"
+                >
+                  <LogOut size={16} />
+                  Cerrar Sesión
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -541,11 +642,10 @@ const AdminDashboard = () => {
             { id: 'users', label: 'Usuarios', icon: Users },
             { id: 'tours', label: 'Tours', icon: MapPin },
             { id: 'purchases', label: 'Reservas', icon: DollarSign },
+            { id: 'guide-requests', label: 'Solicitudes Guía', icon: Shield },
             { id: 'reviews', label: 'Reseñas', icon: Star },
             { id: 'testimonials', label: 'Testimonios', icon: MessageSquare },
-            { id: 'newsletters', label: 'Suscriptores', icon: Mail },
-            { id: 'settings', label: 'Configuración', icon: Settings },
-            { id: 'profile', label: 'Mi Perfil', icon: User }
+            { id: 'newsletters', label: 'Suscriptores', icon: Mail }
           ].map(tab => {
             const Icon = tab.icon;
             return (
@@ -797,6 +897,72 @@ const AdminDashboard = () => {
             </div>
           )}
 
+          {activeTab === 'guide-requests' && (
+            <div>
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h3 className="text-2xl font-bold text-gray-900">Solicitudes de Guía</h3>
+                  <p className="text-gray-500 mt-1">Gestiona las solicitudes para convertirse en guía</p>
+                </div>
+              </div>
+              {loading ? (
+                <p>Cargando...</p>
+              ) : (
+                <div className="space-y-4">
+                  {guideRequests.map(request => (
+                    <div key={request.id} className="bg-white/50 backdrop-blur-sm p-6 rounded-2xl border border-white/20">
+                      <div className="flex justify-between items-start">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                            <User size={20} className="text-blue-600" />
+                          </div>
+                          <div>
+                            <h4 className="font-semibold text-gray-900">{request.name}</h4>
+                            <p className="text-sm text-gray-500">{request.email}</p>
+                            <p className="text-xs text-gray-400">Solicitado: {new Date(request.created_at).toLocaleDateString()}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                            request.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                            request.status === 'approved' ? 'bg-green-100 text-green-800' :
+                            'bg-red-100 text-red-800'
+                          }`}>
+                            {request.status === 'pending' ? 'Pendiente' :
+                             request.status === 'approved' ? 'Aprobada' : 'Rechazada'}
+                          </span>
+                          {request.status === 'pending' && (
+                            <div className="flex gap-2 ml-4">
+                              <button
+                                onClick={() => approveGuideRequest(request.id)}
+                                className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2 text-sm"
+                              >
+                                <Check size={14} /> Aprobar
+                              </button>
+                              <button
+                                onClick={() => rejectGuideRequest(request.id)}
+                                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2 text-sm"
+                              >
+                                <X size={14} /> Rechazar
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {guideRequests.length === 0 && (
+                    <div className="text-center py-12">
+                      <Shield className="mx-auto text-gray-300 mb-4" size={48} />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">No hay solicitudes</h3>
+                      <p className="text-gray-500">No hay solicitudes pendientes para ser guía</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {activeTab === 'reviews' && (
             <div>
               <div className="flex justify-between items-center mb-6">
@@ -864,144 +1030,7 @@ const AdminDashboard = () => {
             </div>
           )}
 
-          {activeTab === 'profile' && (
-            <div>
-              <div className="mb-6">
-                <h3 className="text-2xl font-bold text-gray-900">Mi Perfil de Administrador</h3>
-                <p className="text-gray-500 mt-1">Gestiona tu información personal y configuración de cuenta</p>
-              </div>
-              
-              <form onSubmit={updateAdminProfile} className="space-y-8">
-                {/* Foto de Perfil */}
-                <div className="bg-white/50 backdrop-blur-sm p-6 rounded-2xl border border-white/20">
-                  <label className="block text-sm font-semibold text-gray-700 mb-4">Foto de Perfil</label>
-                  <div className="flex items-start gap-6">
-                    {adminProfile.profileImage ? (
-                      <img 
-                        src={adminProfile.profileImage} 
-                        alt="Perfil Admin"
-                        className="w-20 h-20 rounded-2xl object-cover border-2 border-white shadow-lg"
-                        onError={(e) => {
-                          e.target.style.display = 'none';
-                          e.target.nextElementSibling.style.display = 'flex';
-                        }}
-                      />
-                    ) : null}
-                    <div className={`w-20 h-20 bg-gradient-to-br from-purple-400 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg ${adminProfile.profileImage ? 'hidden' : ''}`}>
-                      <User className="text-white" size={32} />
-                    </div>
-                    <div className="flex-1">
-                      <ImageUpload 
-                        onImageUpload={(url) => setAdminProfile({...adminProfile, profileImage: url})}
-                        currentImage={adminProfile.profileImage}
-                      />
-                    </div>
-                  </div>
-                </div>
 
-                {/* Información Personal */}
-                <div className="bg-white/50 backdrop-blur-sm p-6 rounded-2xl border border-white/20">
-                  <h4 className="text-lg font-semibold text-gray-900 mb-4">Información Personal</h4>
-                  <div className="grid md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Nombre</label>
-                      <input
-                        type="text"
-                        value={adminProfile.name}
-                        onChange={(e) => setAdminProfile({...adminProfile, name: e.target.value})}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                      <input
-                        type="email"
-                        value={adminProfile.email}
-                        onChange={(e) => setAdminProfile({...adminProfile, email: e.target.value})}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Teléfono</label>
-                      <input
-                        type="tel"
-                        value={adminProfile.phone}
-                        onChange={(e) => setAdminProfile({...adminProfile, phone: e.target.value})}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                        placeholder="+1 (555) 123-4567"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Dirección</label>
-                      <input
-                        type="text"
-                        value={adminProfile.address}
-                        onChange={(e) => setAdminProfile({...adminProfile, address: e.target.value})}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                        placeholder="Calle, Ciudad, País"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Cambio de Contraseña */}
-                <div className="bg-white/50 backdrop-blur-sm p-6 rounded-2xl border border-white/20">
-                  <h4 className="text-lg font-semibold text-gray-900 mb-4">Cambiar Contraseña</h4>
-                  <div className="grid md:grid-cols-3 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Contraseña Actual</label>
-                      <input
-                        type="password"
-                        value={adminProfile.currentPassword}
-                        onChange={(e) => setAdminProfile({...adminProfile, currentPassword: e.target.value})}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                        placeholder="Contraseña actual"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Nueva Contraseña</label>
-                      <input
-                        type="password"
-                        value={adminProfile.newPassword}
-                        onChange={(e) => setAdminProfile({...adminProfile, newPassword: e.target.value})}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                        placeholder="Nueva contraseña"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Confirmar Contraseña</label>
-                      <input
-                        type="password"
-                        value={adminProfile.confirmPassword}
-                        onChange={(e) => setAdminProfile({...adminProfile, confirmPassword: e.target.value})}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                        placeholder="Confirmar contraseña"
-                      />
-                    </div>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-2">Deja en blanco si no deseas cambiar la contraseña</p>
-                </div>
-
-                {/* Botón Guardar */}
-                <div className="flex justify-end">
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="px-8 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-medium hover:shadow-lg disabled:opacity-50 transition-all duration-200 flex items-center gap-2"
-                  >
-                    {loading ? (
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    ) : (
-                      <Settings size={18} />
-                    )}
-                    {loading ? 'Guardando...' : 'Guardar Cambios'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          )}
 
           {activeTab === 'testimonials' && (
             <div>
@@ -1258,8 +1287,8 @@ const AdminDashboard = () => {
       
       {/* Modal de Confirmación */}
       {confirmDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9998] p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl animate-in zoom-in-95 duration-200">
             <div className="text-center mb-6">
               <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <X className="text-red-600" size={32} />
@@ -1270,13 +1299,13 @@ const AdminDashboard = () => {
             <div className="flex gap-3">
               <button
                 onClick={confirmDialog.onCancel}
-                className="flex-1 py-3 px-4 border border-gray-300 rounded-xl font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                className="flex-1 py-3 px-4 border border-gray-300 rounded-xl font-medium text-gray-700 hover:bg-gray-50 transition-all duration-200"
               >
                 Cancelar
               </button>
               <button
                 onClick={confirmDialog.onConfirm}
-                className="flex-1 py-3 px-4 bg-red-500 text-white rounded-xl font-medium hover:bg-red-600 transition-colors"
+                className="flex-1 py-3 px-4 bg-red-500 text-white rounded-xl font-medium hover:bg-red-600 transition-all duration-200 hover:shadow-lg"
               >
                 Eliminar
               </button>
@@ -1287,8 +1316,9 @@ const AdminDashboard = () => {
       
       {/* Modal de Edición/Creación de Tours */}
       {editingTour && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9998] p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="max-h-[90vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
             <div className="p-6 border-b border-gray-100">
               <h2 className="text-xl font-semibold text-gray-900">
                 {editingTour.id ? 'Editar Tour' : 'Crear Nuevo Tour'}
@@ -1407,14 +1437,15 @@ const AdminDashboard = () => {
                 </button>
               </div>
             </form>
+            </div>
           </div>
         </div>
       )}
       
       {/* Modal de Testimonio */}
       {editingTestimonial && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9998] p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl animate-in zoom-in-95 duration-200">
             <h3 className="text-xl font-semibold mb-4">
               {editingTestimonial.id ? 'Editar Testimonio' : 'Nuevo Testimonio'}
             </h3>
@@ -1478,6 +1509,163 @@ const AdminDashboard = () => {
         </div>
       )}
 
+
+
+      {/* Profile Modal */}
+      {showProfileModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="max-h-[90vh] overflow-y-auto scrollbar-thin scrollbar-thumb-purple-300 scrollbar-track-gray-100">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-gray-900">Mi Perfil de Administrador</h2>
+              <button onClick={() => setShowProfileModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <X size={20} />
+              </button>
+            </div>
+            <form onSubmit={updateAdminProfile} className="p-6 space-y-8">
+              {/* Foto de Perfil */}
+              <div className="bg-gray-50 p-6 rounded-2xl">
+                <label className="block text-sm font-semibold text-gray-700 mb-4">Foto de Perfil</label>
+                <div className="flex items-start gap-6">
+                  {adminProfile.profileImage ? (
+                    <img 
+                      src={adminProfile.profileImage} 
+                      alt="Perfil Admin"
+                      className="w-20 h-20 rounded-2xl object-cover border-2 border-white shadow-lg"
+                    />
+                  ) : (
+                    <div className="w-20 h-20 bg-gradient-to-br from-purple-400 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+                      <User className="text-white" size={32} />
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <ImageUpload 
+                      onImageUpload={(url) => setAdminProfile({...adminProfile, profileImage: url})}
+                      currentImage={adminProfile.profileImage}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Información Personal */}
+              <div className="bg-gray-50 p-6 rounded-2xl">
+                <h4 className="text-lg font-semibold text-gray-900 mb-4">Información Personal</h4>
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Nombre</label>
+                    <input
+                      type="text"
+                      value={adminProfile.name}
+                      onChange={(e) => setAdminProfile({...adminProfile, name: e.target.value})}
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                    <input
+                      type="email"
+                      value={adminProfile.email}
+                      onChange={(e) => setAdminProfile({...adminProfile, email: e.target.value})}
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Teléfono</label>
+                    <input
+                      type="tel"
+                      value={adminProfile.phone}
+                      onChange={(e) => setAdminProfile({...adminProfile, phone: e.target.value})}
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      placeholder="+1 (555) 123-4567"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Dirección</label>
+                    <input
+                      type="text"
+                      value={adminProfile.address}
+                      onChange={(e) => setAdminProfile({...adminProfile, address: e.target.value})}
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      placeholder="Calle, Ciudad, País"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Cambio de Contraseña */}
+              <div className="bg-gray-50 p-6 rounded-2xl">
+                <h4 className="text-lg font-semibold text-gray-900 mb-4">Cambiar Contraseña</h4>
+                <div className="grid md:grid-cols-3 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Contraseña Actual</label>
+                    <input
+                      type="password"
+                      value={adminProfile.currentPassword}
+                      onChange={(e) => setAdminProfile({...adminProfile, currentPassword: e.target.value})}
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      placeholder="Contraseña actual"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Nueva Contraseña</label>
+                    <input
+                      type="password"
+                      value={adminProfile.newPassword}
+                      onChange={(e) => setAdminProfile({...adminProfile, newPassword: e.target.value})}
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      placeholder="Nueva contraseña"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Confirmar Contraseña</label>
+                    <input
+                      type="password"
+                      value={adminProfile.confirmPassword}
+                      onChange={(e) => setAdminProfile({...adminProfile, confirmPassword: e.target.value})}
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      placeholder="Confirmar contraseña"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">Deja en blanco si no deseas cambiar la contraseña</p>
+              </div>
+
+              {/* Botones */}
+              <div className="flex justify-end gap-4">
+                <button
+                  type="button"
+                  onClick={() => setShowProfileModal(false)}
+                  className="px-6 py-3 border border-gray-300 rounded-xl font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="px-8 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-medium hover:shadow-lg disabled:opacity-50 transition-all duration-200 flex items-center gap-2"
+                >
+                  {loading ? (
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <Settings size={18} />
+                  )}
+                  {loading ? 'Guardando...' : 'Guardar Cambios'}
+                </button>
+              </div>
+            </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Settings Modal */}
+      <SettingsModal 
+        isOpen={showSettingsModal} 
+        onClose={() => setShowSettingsModal(false)} 
+      />
+      
       {/* Toast */}
       {toast && <Toast {...toast} onClose={() => setToast(null)} />}
     </div>
