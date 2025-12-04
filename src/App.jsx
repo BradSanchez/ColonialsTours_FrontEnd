@@ -44,6 +44,7 @@ function AppContent() {
             <AdminDashboard />
           </ProtectedRoute>
         } />
+        
         <Route path="/guide" element={
           <ProtectedRoute guideOnly>
             <GuideDashboard />
